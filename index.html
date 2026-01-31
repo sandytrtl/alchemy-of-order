@@ -1,16 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Alchemy of Order</title>
-
-  <!-- p5.js library -->
-  <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
-
-  <!-- Your game files -->
-  <script src="src/game.js"></script>
-  <script src="src/sketch.js"></script>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <!-- p5.js library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+  
+  <!-- Load files in correct order -->
+  <!-- 1. Constants first (everything depends on these) -->
+  <script src="src/constants.js"></script>
+  
+  <!-- 2. Classes and utilities -->
+  <script src="src/vial.js"></script>
+  <script src="src/storage.js"></script>
+  
+  <!-- 3. Game systems -->
+  <script src="src/level.js"></script>
+  <script src="src/ui.js"></script>
+  <script src="src/game.js"></script>
+  
+  <!-- 4. Main sketch last (uses everything above) -->
+  <script src="src/sketch.js"></script>
 </body>
 </html>

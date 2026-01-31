@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "expectedMoves": 6,
+    "vials": [
+      ["RED", "BLUE", "RED", "RED"],
+      ["BLUE", "RED", "BLUE", "BLUE"],
+      []
+    ]
+  },
+  {
+    "id": 2,
+    "expectedMoves": 7,
+    "vials": [
+      ["GREEN", "RED", "GREEN", "BLUE"],
+      ["BLUE", "GREEN", "RED", "GREEN"],
+      []
+    ]
+  }
+]

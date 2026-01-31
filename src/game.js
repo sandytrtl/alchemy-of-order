@@ -1,168 +1,36 @@
-// --- GAME CONSTANTS ---
-const VIAL_CAPACITY = 4;
-const VIAL_WIDTH = 70;
-const VIAL_HEIGHT = 220;
-const LAYER_HEIGHT = VIAL_HEIGHT / VIAL_CAPACITY;
+// src/game.js
 
-// --- POTION COLORS ---
-const POTION_COLORS = {
-  RED: '#e74c3c',
-  BLUE: '#3498db',
-  GREEN: '#2ecc71',
-  PURPLE: '#9b59b6',
-  YELLOW: '#f1c40f'
-};
+// ===== GAME STATE VARIABLES =====
 
-class Vial {
-  constructor(x, y, layers = [], type = 'normal') {
-    this.x = x;
-    this.y = y;
-    this.layers = layers;
-    this.type = type;
-    this.sealed = false; // lid state
-  }
-
-  isEmpty() {
-    return this.layers.length === 0;
-  }
-
-  isFull() {
-    return this.layers.length === VIAL_CAPACITY;
-  }
-
-  topColor() {
-    if (this.isEmpty()) return null;
-    return this.layers[this.layers.length - 1];
-  }
-
-  isCompleted() {
-    if (this.layers.length !== VIAL_CAPACITY) return false;
-
-    const firstColor = this.layers[0];
-    return this.layers.every(color => color === firstColor);
-  }
-}
-
-
-
+let currentLevelIndex = 0;
 let vials = [];
 let selectedVial = null;
-let expectedMoves = 6; // per level for now
+let expectedMoves = 6;
 let stars = 3;
 let levelCompleted = false;
 let undoUsesLeft = 5;
 let moveCount = 0;
 let undoStack = [];
+let totalCoins = 0;
+let coinsEarnedThisLevel = 0;
+let levelProgress = [];
+let currentScreen = SCREEN.GAME;
 
-const MAX_UNDO = 5;
-if (undoStack.length > MAX_UNDO) {
-  undoStack.shift();
-}
+// ===== INITIALIZATION =====
 
-
-
-const BASE_Y = 450;
-
-function createTestLevel() {
-levelCompleted = false;
-moveCount = 0;
-undoUsesLeft = 5;
-undoStack = [];
-stars = 3;
-vials = [
-    new Vial(150, BASE_Y, [
-      POTION_COLORS.RED,
-      POTION_COLORS.BLUE,
-      POTION_COLORS.RED,
-      POTION_COLORS.RED
-    ]),
-
-    new Vial(250, BASE_Y, [
-      POTION_COLORS.BLUE,
-      POTION_COLORS.RED,
-      POTION_COLORS.BLUE,
-      POTION_COLORS.BLUE
-    ]),
-
-    new Vial(350, BASE_Y, [
-      
-  
-]),
-
-  ];
-}
-
-
-
-function drawVials() {
-  for (let vial of vials) {
-    drawVial(vial);
+function initializeGame() {
+  // Initialize level progress for all 100 levels
+  levelProgress = [];
+  for (let i = 0; i < TOTAL_LEVELS; i++) {
+    levelProgress.push({
+      unlocked: i === 0, // Only level 1 unlocked at start
+      stars: 0
+    });
   }
 }
 
-// Draw all vials on the canvas
-function drawVial(vial) {
-  if (vial === selectedVial) {
-    stroke(255, 215, 0);
-    strokeWeight(3);
-  } else {
-    stroke(255);
-    strokeWeight(1);
-  }
+// ===== VIAL INTERACTION =====
 
-  noFill();
-  rect(vial.x, vial.y - VIAL_HEIGHT, VIAL_WIDTH, VIAL_HEIGHT, 10);
-
-  // potion layers
-  noStroke();
-  for (let i = 0; i < vial.layers.length; i++) {
-    fill(vial.layers[i]);
-    rect(
-      vial.x,
-      vial.y - (i + 1) * LAYER_HEIGHT,
-      VIAL_WIDTH,
-      LAYER_HEIGHT
-    );
-  }
-
-  // lid placeholder 
-if (vial.sealed) {
-  stroke(255, 215, 0);      // bright gold outline
-  strokeWeight(5);
-  fill(220, 170, 60);       // brighter gold fill
-
-  rect(
-    vial.x - 6,
-    vial.y - VIAL_HEIGHT - 30,
-    VIAL_WIDTH + 12,
-    16,
-    8
-  );
-}
-
-line(
-  vial.x,
-  vial.y - VIAL_HEIGHT,
-  vial.x + VIAL_WIDTH,
-  vial.y - VIAL_HEIGHT
-);
-
-}
-
-
-
-
-//hit detect 
-function isMouseOverVial(vial) {
-  return (
-    mouseX > vial.x &&
-    mouseX < vial.x + VIAL_WIDTH &&
-    mouseY > vial.y - VIAL_HEIGHT &&
-    mouseY < vial.y
-  );
-}
-
-//click logic
 function handleVialClick(vial) {
   if (selectedVial === null) {
     // First click: select source vial
@@ -178,57 +46,42 @@ function handleVialClick(vial) {
   }
 }
 
-//validate 
 function tryPour(fromVial, toVial) {
   if (fromVial.isEmpty()) return;
   if (toVial.isFull()) return;
   if (fromVial.sealed || toVial.sealed) return;
 
-  const movingColor = fromVial.topColor();
+  const color = fromVial.topColor();
 
-  if (
-    toVial.isEmpty() ||
-    toVial.topColor() === movingColor
-  ) {
-    saveState(); // save BEFORE change
+  // Target must be empty or same color
+  if (!toVial.isEmpty() && toVial.topColor() !== color) return;
 
+  // Count how many same-color layers on top
+  let count = 0;
+  for (let i = fromVial.layers.length - 1; i >= 0; i--) {
+    if (fromVial.layers[i] === color) count++;
+    else break;
+  }
+
+  const freeSpace = VIAL_CAPACITY - toVial.layers.length;
+  const pourAmount = Math.min(count, freeSpace);
+
+  if (pourAmount <= 0) return;
+
+  saveState();
+
+  for (let i = 0; i < pourAmount; i++) {
     fromVial.layers.pop();
-    toVial.layers.push(movingColor);
-
-    moveCount++;
-
-    updateCompletedVials();
-    checkLevelComplete();
-
-    console.log('Moves:', moveCount);
-  }
-}
-
-
-//lid logic
-function updateCompletedVials() {
-  for (let vial of vials) {
-    if (vial.isCompleted()) {
-      vial.sealed = true;
-    }
-  }
-}
-
-//detect level completion
-function checkLevelComplete() {
-  for (let vial of vials) {
-    if (!vial.isEmpty() && !vial.isCompleted()) {
-      return;
-    }
+    toVial.layers.push(color);
   }
 
-  levelCompleted = true;
-  calculateStars();
+  moveCount++;
 
-  console.log('LEVEL COMPLETE');
+  updateCompletedVials();
+  checkLevelComplete();
 }
 
-
+// ===== UNDO SYSTEM =====
 
 function saveState() {
   const state = vials.map(vial => ({
@@ -256,6 +109,52 @@ function undoMove() {
   console.log('Undo left:', undoUsesLeft);
 }
 
+// ===== LEVEL COMPLETION =====
+
+function updateCompletedVials() {
+  for (let vial of vials) {
+    if (vial.isCompleted() && !vial.sealed) {
+      vial.sealed = true;
+
+      if (!vial.coinRewarded) {
+        totalCoins += COINS_PER_VIAL;
+        coinsEarnedThisLevel += COINS_PER_VIAL;
+        vial.coinRewarded = true;
+
+        console.log('+', COINS_PER_VIAL, 'coins');
+      }
+    }
+  }
+}
+
+function checkLevelComplete() {
+  for (let vial of vials) {
+    if (!vial.isEmpty() && !vial.isCompleted()) {
+      return;
+    }
+  }
+
+  levelCompleted = true;
+
+  calculateStars();
+
+  // Update level progress
+  if (levelProgress[currentLevelIndex]) {
+    if (stars > levelProgress[currentLevelIndex].stars) {
+      levelProgress[currentLevelIndex].stars = stars;
+    }
+  }
+
+  // Unlock next level
+  if (currentLevelIndex + 1 < TOTAL_LEVELS) {
+    levelProgress[currentLevelIndex + 1].unlocked = true;
+  }
+
+  currentScreen = SCREEN.LEVEL_COMPLETE;
+
+  console.log('LEVEL COMPLETE');
+  console.log('Coins earned:', coinsEarnedThisLevel);
+}
 
 function calculateStars() {
   if (moveCount <= expectedMoves) {
@@ -269,10 +168,16 @@ function calculateStars() {
   console.log('Stars earned:', stars);
 }
 
+// ===== SHOP ACTIONS =====
 
+function buyEmptyVial() {
+  if (totalCoins >= 200) {
+    totalCoins -= 200;
 
+    const x = 150 + vials.length * 100;
+    vials.push(new Vial(x, BASE_Y, []));
 
-
-
-
-
+    saveProgress();
+    console.log('Bought empty vial');
+  }
+}
